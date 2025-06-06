@@ -1,0 +1,246 @@
+import React, { useState, useEffect, useRef } from "react";
+import "./App.css";
+
+// Mock authentication (replace with real auth in production)
+const mockLogin = (username, password) =>
+  new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (username === "user" && password === "password") resolve("mock-token");
+      else reject("Invalid credentials");
+    }, 500);
+  });
+
+// Chatbot message component
+function ChatMessage({ message }) {
+  return (
+    <div className={`chat-message ${message.sender}`}>
+      <div className="chat-meta">
+        <span>{message.sender === "user" ? "You" : "Bot"}</span>
+        <span className="timestamp">{message.timestamp}</span>
+      </div>
+      <div className="chat-text">{message.text}</div>
+      {message.products && (
+        <div className="product-list">
+          {message.products.map((p) => (
+            <div className="product-card" key={p.id}>
+              <img src={p.image} alt={p.name} />
+              <div>
+                <strong>{p.name}</strong>
+                <div>{p.description}</div>
+                <div>${p.price}</div>
+                <button>Add to Cart</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Chatbot interface
+function Chatbot({ token, onLogout }) {
+  const [messages, setMessages] = useState(() => {
+    // Load from localStorage for session continuity
+    const saved = localStorage.getItem("chat_history");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Scroll to bottom on new message
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Save chat history
+  useEffect(() => {
+    localStorage.setItem("chat_history", JSON.stringify(messages));
+  }, [messages]);
+
+  // Simulated backend interaction
+  const sendMessage = async (text) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setMessages((msgs) => [
+      ...msgs,
+      { sender: "user", text, timestamp }
+    ]);
+    setLoading(true);
+
+    // Simulate RESTful API call
+    setTimeout(async () => {
+      // Replace with real API call in production
+      let response;
+      if (text.toLowerCase().includes("laptop")) {
+        response = {
+          text: "Here are some laptops you might like:",
+          products: mockProducts.filter((p) => p.category === "laptop")
+        };
+      } else if (text.toLowerCase().includes("phone")) {
+        response = {
+          text: "Here are some phones you might like:",
+          products: mockProducts.filter((p) => p.category === "phone")
+        };
+      } else if (text.toLowerCase().includes("reset")) {
+        setMessages([]);
+        setLoading(false);
+        localStorage.removeItem("chat_history");
+        return;
+      } else {
+        response = { text: "Sorry, I didn't understand. Try searching for 'laptop' or 'phone'." };
+      }
+      setMessages((msgs) => [
+        ...msgs,
+        {
+          sender: "bot",
+          text: response.text,
+          timestamp: new Date().toLocaleTimeString(),
+          products: response.products
+        }
+      ]);
+      setLoading(false);
+    }, 1000);
+  };
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    sendMessage(input.trim());
+    setInput("");
+  };
+
+  return (
+    <div className="chatbot-container">
+      <header>
+        <h2>Sales Chatbot</h2>
+        <button onClick={onLogout}>Logout</button>
+      </header>
+      <div className="chat-history">
+        {messages.map((msg, idx) => (
+          <ChatMessage key={idx} message={msg} />
+        ))}
+        <div ref={chatEndRef} />
+      </div>
+      <form className="chat-input" onSubmit={handleSend}>
+        <input
+          type="text"
+          placeholder="Ask about products..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={loading}
+        />
+        <button type="submit" disabled={loading || !input.trim()}>
+          Send
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMessages([]);
+            localStorage.removeItem("chat_history");
+          }}
+        >
+          Reset
+        </button>
+      </form>
+      {loading && <div className="loading">Bot is typing...</div>}
+    </div>
+  );
+}
+
+// Login form
+function Login({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const token = await mockLogin(username, password);
+      onLogin(token);
+    } catch (e) {
+      setErr(e);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="login-container">
+      <h2>Login to E-Commerce Chatbot</h2>
+      <form onSubmit={handleLogin}>
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoFocus
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
+        </button>
+        {err && <div className="error">{err}</div>}
+      </form>
+      <div className="demo-info">
+        <strong>Demo credentials:</strong> user / password
+      </div>
+    </div>
+  );
+}
+
+// Mock product data (replace with API in production)
+const mockProducts = [
+  {
+    id: 1,
+    name: "UltraBook Pro 15",
+    category: "laptop",
+    description: "15-inch, 16GB RAM, 512GB SSD",
+    price: 1299,
+    image: "https://via.placeholder.com/100?text=Laptop+1"
+  },
+  {
+    id: 2,
+    name: "SmartPhone X",
+    category: "phone",
+    description: "6.1-inch, 128GB, Dual Camera",
+    price: 799,
+    image: "https://via.placeholder.com/100?text=Phone+1"
+  },
+  // ...add more mock products up to 100 for real demo
+];
+
+function App() {
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
+
+  const handleLogin = (token) => {
+    setToken(token);
+    localStorage.setItem("token", token);
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("chat_history");
+  };
+
+  return (
+    <div className="app">
+      {token ? (
+        <Chatbot token={token} onLogout={handleLogout} />
+      ) : (
+        <Login onLogin={handleLogin} />
+      )}
+    </div>
+  );
+}
+
+export default App;
